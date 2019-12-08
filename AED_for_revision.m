@@ -9,15 +9,16 @@ mu = 0.001;
 % s = audioread('m60_68_FKFB0_con.wav');
 % s = audioread('m45_68_MDAC0_con.wav');
 fs = 16000;
-SNR = 10;
+IntpRatio = 2;
+SNR = 0;
 RT60 = 0.6; %0.2 : 0.2 : 0.6;
 azimuth = -60 : 30 : 60 ;
 target = [{'female1'},{'female2'},{'female3'},{'male1'},{'male2'},{'male3'}];
 Nu = 0; % utterence 개수
 Nu_out = 0; % est_sample_delay가 max_delay보다 큰 경우는 Nu에서 제외함.
 
-for target_index = 1 : 6
-    for azimuth_index = 1 : 5
+for target_index = 1% : 6
+    for azimuth_index = 5% : 5
         
         [s,fs_s] = audioread(['./Simulated Target/1source/RT60_' , num2str(RT60),'/',target{target_index},'/mixture_1x2_SNR_0_',num2str(azimuth(azimuth_index)),'도/x_1x2.wav']);
         [n,fs_n] = audioread('./Simulated Noise/x_18x2.wav');
@@ -51,12 +52,12 @@ for target_index = 1 : 6
         x2 = s(:,2);
         
         % 초기화
-        g2 = [ zeros(1,M/2-1) 1 zeros(1,M/2)];
-        g1 = [0 zeros(1,M/2-1) zeros(1,M/2)];
+        g2 = [ zeros(1,M*IntpRatio/2-1) 1 zeros(1,M*IntpRatio/2)];
+        g1 = [0 zeros(1,M*IntpRatio/2-1) zeros(1,M*IntpRatio/2)];
         
         % u 업데이트
         u = [g1 g2]';
-        len = floor((length(x1)-M)/M);
+        len = floor((length(x1)-M*IntpRatio)/(M*IntpRatio));
         
         for n = 1 : 1000000
             
@@ -66,8 +67,8 @@ for target_index = 1 : 6
                 i = len;
             end
             
-            x_temp(1,:) = x1((i*M) : -1 : (i-1)*M+1);
-            x_temp(2,:) = x2((i*M) : -1 : (i-1)*M+1);
+            x_temp(1,:) = x1((i*M*IntpRatio)-(i-1)*M : -1 : (i-1)*M*IntpRatio+1);
+            x_temp(2,:) = x2((i*M*IntpRatio) : -1 : (i-1)*M*IntpRatio+1);
             x = [x_temp(2,:) -x_temp(1,:)]'; % 논문에서 x1*g2 = x2*g1 을 수행하기 위해, g는 그대로 두고 x의 좌우를 change
             
             e = u' * x;
@@ -79,8 +80,8 @@ for target_index = 1 : 6
             %             end
 
         end
-        [a, b]=max(u(1:M));
-        [c, d]=max(u(M+1:2*M));
+        [a, b]=max(u(1:M*IntpRatio));
+        [c, d]=max(u(M*IntpRatio+1:2*M*IntpRatio));
         
         max_delay = micdist*fs/C;
         est_sample_delay = -(d-b);
@@ -147,8 +148,8 @@ MAE = sum(diff_sample_delay) / Nu;
 
 figure(1)
 subplot(211)
-stem(u(1:M));
+stem(u(1:M*IntpRatio));
 xlabel('k');ylabel('g_1(k)');
 subplot(212)
-stem(u(M+1:2*M));
+stem(u(M*IntpRatio+1:2*M*IntpRatio));
 xlabel('k');ylabel('g_2(k)');
