@@ -3,13 +3,13 @@
 clear all; close all ; clc;
 
 C= 343;
-micdist = 0.12;
+micdist = 1;
 M = 512; % length of impulse response vectors
 mu = 0.001;
 % s = audioread('m60_68_FKFB0_con.wav');
 % s = audioread('m45_68_MDAC0_con.wav');
 fs = 16000;
-IntpRatio = 4;
+IntpRatio = 16;
 SNR = 20;
 RT60 = 0.6; %0.2 : 0.2 : 0.6;
 azimuth = -60 : 30 : 60 ;
@@ -20,9 +20,14 @@ Nu_out = 0; % est_sample_delay가 max_delay보다 큰 경우는 Nu에서 제외함.
 for target_index = 1 : 6
     for azimuth_index = 1 : 5
         
-        [s,fs_s] = audioread(['./Simulated Target/1source/RT60_' , num2str(RT60),'/',target{target_index},'/mixture_1x2_SNR_0_',num2str(azimuth(azimuth_index)),'도/x_1x2.wav']);
-        [n,fs_n] = audioread('./Simulated Noise/x_18x2.wav');
-
+        %%% 마이크 간격 0.12m
+%         [s,fs_s] = audioread(['./Simulated Target/1source/RT60_' , num2str(RT60),'/',target{target_index},'/mixture_1x2_SNR_0_',num2str(azimuth(azimuth_index)),'도/x_1x2.wav']);
+%         [n,fs_n] = audioread('./Simulated Noise/x_18x2.wav');
+        
+        %%% 마이크 간격 1m
+        [s,fs_s] = audioread(['./1m_Target/RT60_' , num2str(RT60),'/',target{target_index},'/mixture_1x2_SNR_0_',num2str(azimuth(azimuth_index)),'도/x_1x2.wav']);
+        [n,fs_n] = audioread(['./1m_Noise/RT60_' , num2str(RT60),'/diffuse_noise_4/', 'x_18x2.wav']);
+        
         s_resample = resample(s,fs,fs_s);
         n_resample = resample(n,fs,fs_n);
         n_resample = [n_resample; n_resample];
