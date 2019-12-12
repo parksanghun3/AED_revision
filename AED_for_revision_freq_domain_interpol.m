@@ -36,13 +36,13 @@ for target_index = 1% : 6
         dRatio=zeros(10000000,1);
         
         % Factors
-        index = 0:(L-1);
-        FL = exp(-1i*2*pi/L*(index'*index));
-        index = 0:2*L-1;
-        F2L = exp(-1i*2*pi/(2*L)*(index'*index));
+        index = 0:(L*IntpRatio-1);
+        FL = exp(-1i*2*pi/L*IntpRatio*(index'*index));
+        index = 0:2*L*IntpRatio-1;
+        F2L = exp(-1i*2*pi/(2*L*IntpRatio)*(index'*index));
         
-        W01 = FL*[zeros(L) eye(L)]*inv(F2L);
-        W10 = F2L*[eye(L); zeros(L)]*inv(FL);
+        W01 = FL*[zeros(L*IntpRatio) eye(L*IntpRatio)]*inv(F2L);
+        W10 = F2L*[eye(L*IntpRatio); zeros(L*IntpRatio)]*inv(FL);
         
         %%% 마이크 간격 0.12m
 %         [s,fs_s] = audioread(['./Simulated Target/1source/RT60_' , num2str(RT60),'/',target{target_index},'/mixture_1x2_SNR_0_',num2str(azimuth(azimuth_index)),'도/x_1x2.wav']);
@@ -76,30 +76,42 @@ for target_index = 1% : 6
         
         x1=s(:,1);x2=s(:,2);
         
-      
+        x1_interpol = interp(x1,IntpRatio);
+        x2_interpol = interp(x2,IntpRatio);
+
+        if IntpRatio == 1
+            continue;
+            
+        elseif IntpRatio >= 2
+            x1 = x1_interpol;
+            x2 = x2_interpol;
+            
+        end
+        
         % Initialization
         h1_init=[zeros(1,L/2*IntpRatio-1) 1/sqrt(M) zeros(1,L/2*IntpRatio)]';
         h2_init=[zeros(1,L/2*IntpRatio-1) 1/sqrt(M) zeros(1,L/2*IntpRatio)]';
         
+        
         % Calculation
         h1 = fft(h1_init);
         h2 = fft(h2_init);
-        h110_ = fft([h1_init; zeros(L,1)]);
-        h210_ = fft([h2_init; zeros(L,1)]);
+        h110_ = fft([h1_init; zeros(L*IntpRatio,1)]);
+        h210_ = fft([h2_init; zeros(L*IntpRatio,1)]);
         
-        m_Dx = zeros(2*L,1);
+        m_Dx = zeros(2*L*IntpRatio,1);
         for m=1:m_frame
-            m_t_Dx = fft(x1((m-1)*L+1:(m+1)*L));
+            m_t_Dx = fft(x1((m-1)*L*IntpRatio+1:(m+1)*L*IntpRatio));
             m_Dx = m_Dx + abs(m_t_Dx).^2;
-            m_t_Dx = fft(x2((m-1)*L+1:(m+1)*L));
+            m_t_Dx = fft(x2((m-1)*L*IntpRatio+1:(m+1)*L*IntpRatio));
             m_Dx = m_Dx + abs(m_t_Dx).^2;
         end
         
         delta = min(m_Dx)/M/m_frame*scale_delta;
-        P1 = zeros(2*L,1);
-        P2 = zeros(2*L,1);
+        P1 = zeros(2*L*IntpRatio,1);
+        P2 = zeros(2*L*IntpRatio,1);
         
-        len=floor((length(x1)-L)/L);
+        len=floor((length(x1)-L*IntpRatio)/(L*IntpRatio));
         
         err(1)=0;
         
@@ -110,8 +122,8 @@ for target_index = 1% : 6
                 m=len;
             end
             l = mod(n,1000);
-            Dx1 = fft(x1((m-1)*L+1:(m+1)*L));
-            Dx2 = fft(x2((m-1)*L+1:(m+1)*L));
+            Dx1 = fft(x1((m-1)*L*IntpRatio+1:(m+1)*L*IntpRatio));
+            Dx2 = fft(x2((m-1)*L*IntpRatio+1:(m+1)*L*IntpRatio));
             e12_ = W01*(Dx1.*(W10*h2) - Dx2.*(W10*h1));
             e21_ = -e12_;
             err(n) =  norm(e12_,2);
