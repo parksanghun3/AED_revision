@@ -5,24 +5,27 @@ close all; clc;
 
 %Parameters
 M = 2; L = 512; % length of impulse response vectors
+iteration = 50000;
 C= 343;
 micdist = 1;
 fs = 16000;
+max_delay = ceil(micdist*fs/C);
 IntpRatio = 2;
-SNR = 20;
+SNR = 10;
 RT60 = 0.4; %0.2 : 0.2 : 0.6;
 azimuth = -60 : 30 : 60 ;
 target = [{'female1'},{'female2'},{'female3'},{'male1'},{'male2'},{'male3'}];
 Nu = 0; % utterence 개수
 Nu_out = 0; % est_sample_delay가 max_delay보다 큰 경우는 Nu에서 제외함.
 
-mu=3.3E-1;
+% mu=3.3E-1;
+mu=0.001;
 mu2=7.1E-3;
 lambda = (1-1/3/L)^L; 
 m_frame = 100; scale_delta = 0.2; 
 
-for target_index = 1 : 6
-    for azimuth_index = 1 : 5
+for target_index = 1% : 6
+    for azimuth_index = 1%1 : 5
 
         err=zeros(10000000,1);
         n1=zeros(1000,L);
@@ -80,14 +83,9 @@ for target_index = 1 : 6
         
         % Calculation
         h1 = fft(h1_init);
-        h1_padding = [h1(1:L/2) ; zeros(L*(IntpRatio-1)/2, 1) ; h1(L/2+1) ; zeros(L*(IntpRatio-1)/2, 1); h1(end-L/2+2:end)];
         h2 = fft(h2_init);
-        h2_padding = [h2(1:L/2) ; zeros(L*(IntpRatio-1)/2, 1) ; h2(L/2+1) ; zeros(L*(IntpRatio-1)/2, 1); h2(end-L/2+2:end)];
-        
         h110_ = fft([h1_init; zeros(L,1)]);
-        h110_padding =  [h110_(1 : (2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; h110_((2*L)/2 + 1) ; zeros((2*L) * (IntpRatio -1)/2, 1) ; h110_(end-(2*L)/2 + 2 : end)];
         h210_ = fft([h2_init; zeros(L,1)]);
-        h210_padding =  [h210_(1 : (2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; h210_((2*L)/2 + 1) ; zeros((2*L) * (IntpRatio -1)/2, 1) ; h210_(end-(2*L)/2 + 2 : end)];
         
         m_Dx = zeros(2*L,1);
         for m=1:m_frame
@@ -105,7 +103,7 @@ for target_index = 1 : 6
         
         err(1)=0;
         
-        for n=1:50000
+        for n=1:iteration
             if (mod(n,len)~=0)
                 m= mod(n,len);
             else
@@ -113,10 +111,8 @@ for target_index = 1 : 6
             end
             l = mod(n,1000);
             Dx1 = fft(x1((m-1)*L+1:(m+1)*L));
-            Dx1_padding =  [Dx1(1 : (2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; Dx1((2*L)/2 + 1) ; zeros((2*L) * (IntpRatio -1)/2, 1) ; Dx1(end-(2*L)/2 + 2 : end)];
             Dx2 = fft(x2((m-1)*L+1:(m+1)*L));
-            Dx2_padding =  [Dx2(1 : (2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; Dx2((2*L)/2 + 1) ; zeros((2*L) * (IntpRatio -1)/2, 1) ; Dx2(end-(2*L)/2 + 2 : end)];
-            e12_ = W01*(Dx1_padding.*(W10*h2_padding) - Dx2_padding.*(W10*h1_padding));
+            e12_ = W01*(Dx1.*(W10*h2) - Dx2.*(W10*h1));
             e21_ = -e12_;
             err(n) =  norm(e12_,2);
             
@@ -132,16 +128,17 @@ for target_index = 1 : 6
             P2 = lambda*P2 + (1-lambda)*abs(Dx1).^2;
             
             e1201 = fft([zeros(L,1); real(ifft(e12_))]);
-            e1201_padding  = [e1201(1 : (2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; e1201((2*L)/2 + 1) ; zeros((2*L) * (IntpRatio -1)/2, 1) ; e1201(end-(2*L)/2 + 2 : end)];
-
-            e2101_padding = -e1201_padding;
-            tmp_h1 = h110_padding- mu*conj(Dx2).*e2101_padding./(P1+delta*ones(2*L,1));
-            tmp_h2 = h210_padding - mu*conj(Dx1).*e1201_padding./(P2+delta*ones(2*L,1));
+            e2101 = -e1201;
+            
+            tmp_h1 = h110_- mu*conj(Dx2).*e2101./(P1+delta*ones(2*L,1));
+            tmp_h2 = h210_ - mu*conj(Dx1).*e1201./(P2+delta*ones(2*L,1));
             
             th1 = real(ifft(tmp_h1));
             th2 = real(ifft(tmp_h2));
+            
             norm1=norm((th1(1:L)),2);
             norm2=norm((th2(1:L)),2);
+            
             h_th1 = th1(1:L) - norm1*mu2*sign(th1(1:L));
             h_th2 = th2(1:L) - norm2*mu2*sign(th2(1:L));
             
@@ -149,22 +146,77 @@ for target_index = 1 : 6
             norm_h = norm([h_th1; h_th2]);
             n_th1 = h_th1/norm_h;
             n_th2 = h_th2/norm_h;
+            
             if (l==0)
                 flag=flag+1;
                 n1(flag,:) = n_th1;
                 n2(flag,:) = n_th2;
             end
+            
             h1 = fft(n_th1);
             h2 = fft(n_th2);
             h110_ = fft([n_th1; zeros(L,1)]);
             h210_ = fft([n_th2; zeros(L,1)]);
+            
+            if n == iteration %% h 업데이트 끝나고 마지막
+%                 h1_padding = [h1(1:L/2) ; zeros(L * (IntpRatio-1)/2, 1) ; h1(L/2 +1) ; zeros(L * (IntpRatio-1)/2, 1) ; h1(end-L/2 +2 : end)];
+%                 h2_padding = [h2(1:L/2) ; zeros(L * (IntpRatio-1)/2, 1) ; h2(L/2 +1) ; zeros(L * (IntpRatio-1)/2, 1) ; h2(end-L/2 +2 : end)];
+                
+                h1_padding = [h110_(1:L) ; zeros(L * (IntpRatio-1), 1) ; h110_(L+1) ; zeros(L * (IntpRatio-1), 1) ; h110_(end-L +2 : end)];
+                h2_padding = [h210_(1:L) ; zeros(L * (IntpRatio-1), 1) ; h210_(L+1) ; zeros(L * (IntpRatio-1), 1) ; h210_(end-L +2 : end)];
+
+                
+
+                th1 = real(ifft(h1_padding));
+                th1_inv = [th1(end/2+1:end) ; th1(1:end/2)];
+                th1_resize = [th1_inv(length(th1_inv)/2-(max_delay*IntpRatio) : length(th1_inv)/2) ; th1(length(th1_inv)/2 + 1 : length(th1_inv)/2 + (max_delay*IntpRatio))];
+                
+                
+                th2 = real(ifft(h2_padding));
+                th2_inv = [th2(end/2+1:end) ; th2(1:end/2)];
+                th2_resize = [th2_inv(length(th2_inv)/2-(max_delay*IntpRatio) : length(th2_inv)/2) ; th2(length(th2_inv)/2 + 1 : length(th2_inv)/2 + (max_delay*IntpRatio))];
+
+%                 tmp_h1_padding = [tmp_h1(1:(2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; tmp_h1((2*L)/2 +1) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; tmp_h1(end-(2*L)/2 +2 : end)];
+%                 tmp_h2_padding = [tmp_h2(1:(2*L)/2) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; tmp_h2((2*L)/2 +1) ; zeros((2*L) * (IntpRatio-1)/2, 1) ; tmp_h2(end-(2*L)/2 +2 : end)];
+%                 
+%                 th1 = real(ifft(tmp_h1_padding));
+%                 th1 = [th1(end/2+1:end) ; th1(1:end/2)];
+%                 th1 = [th1(length(th1)/2-(max_delay*IntpRatio) : length(th1)/2) ; th1(length(th1)/2 + 1 : length(th1)/2 + (max_delay*IntpRatio))];
+%                 
+%                 
+%                 th2 = real(ifft(tmp_h2_padding));
+%                 th2 = [th2(end/2+1:end) ; th2(1:end/2)];
+%                 th2 = [th2(length(th2)/2-(max_delay*IntpRatio) : length(th2)/2) ; th2(length(th2)/2 + 1 : length(th2)/2 + (max_delay*IntpRatio))];
+
+%                 norm1=norm((th1(1:L*IntpRatio)),2);
+%                 norm2=norm((th2(1:L*IntpRatio)),2);
+                
+                norm1=norm(th1_resize,2);
+                norm2=norm(th2_resize,2);
+                h_th1_final = th1_resize - norm1*mu2*sign(th1_resize);
+                h_th2_final = th2_resize - norm2*mu2*sign(th2_resize);
+%                 h_th1_final = th1(1:L*IntpRatio) - norm1*mu2*sign(th1(1:L*IntpRatio));
+%                 h_th2_final = th2(1:L*IntpRatio) - norm2*mu2*sign(th2(1:L*IntpRatio));
+                
+                % Normalization
+                norm_h = norm([h_th1_final; h_th2_final]);
+                n_th1_final = h_th1_final/norm_h;
+                n_th2_final = h_th2_final/norm_h;                
+            end
         end
         
-        [a, b]=max(n_th1);
-        [c, d]=max(n_th2);
+        [a, b]=max(n_th1_final);
+        [c, d]=max(n_th2_final);
+
+        est_sample_delay = ((b-d)/IntpRatio)
         
-        max_delay = micdist*fs/C;
-        est_sample_delay = -(d-b);
+        
+%         [a, b]=max(th1);
+%         [c, d]=max(th2);
+%         est_sample_delay1 = b / IntpRatio - max_delay;
+%         est_sample_delay2 = d / IntpRatio - max_delay;
+%         est_sample_delay = est_sample_delay1 - est_sample_delay2
+%         est_sample_delay = -(d-b);
         
         if abs(est_sample_delay) >= max_delay
             if est_sample_delay > 0
@@ -200,5 +252,7 @@ disp(['Nu = ' , num2str(Nu)]);
 disp(['MAE = ' , num2str(MAE)]);
 
 figure(1);
-subplot(211);stem(n_th1);title('Adaptive Filter h1');
-subplot(212);stem(n_th2);title('Adaptive Filter h2');
+% subplot(211);stem(n_th1);title('Adaptive Filter h1');
+% subplot(212);stem(n_th2);title('Adaptive Filter h2');
+subplot(211);stem(n_th1_final);title('Adaptive Filter h1');
+subplot(212);stem(n_th2_final);title('Adaptive Filter h2');
