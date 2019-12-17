@@ -4,12 +4,12 @@ clear all;
 close all; clc;
 
 %Parameters
-M = 2; L = 512; % length of impulse response vectors
+M = 2; L = 128; % length of impulse response vectors
 C= 343;
 micdist = 1;
 fs = 16000;
-IntpRatio = 16;
-SNR = 20;
+% IntpRatio = 16;
+SNR = 10;
 RT60 = 0.4; %0.2 : 0.2 : 0.6;
 azimuth = -60 : 30 : 60 ;
 target = [{'female1'},{'female2'},{'female3'},{'male1'},{'male2'},{'male3'}];
@@ -21,8 +21,8 @@ mu2=7.1E-3;
 lambda = (1-1/3/L)^L; 
 m_frame = 100; scale_delta = 0.2; 
 
-for target_index = 1 : 6
-    for azimuth_index = 1 : 5
+for target_index = 1% : 6
+    for azimuth_index = 1% : 5
 
         err=zeros(10000000,1);
         n1=zeros(1000,L);
@@ -100,13 +100,13 @@ for target_index = 1 : 6
         
         err(1)=0;
         
-        for n=1:50000
+        for n=1:100000
             if (mod(n,len)~=0)
                 m= mod(n,len);
             else
                 m=len;
             end
-            l=mod(n,1000);
+            l = mod(n,1000);
             Dx1 = fft(x1((m-1)*L+1:(m+1)*L));
             Dx2 = fft(x2((m-1)*L+1:(m+1)*L));
             e12_ = W01*(Dx1.*(W10*h2) - Dx2.*(W10*h1));
